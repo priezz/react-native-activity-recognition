@@ -1,64 +1,51 @@
-import { NativeModules, NativeEventEmitter } from 'react-native';
+import {NativeModules, NativeEventEmitter} from 'react-native'
 
-const { RNActivityRecognition } = NativeModules;
+const {RNActivityRecognition} = NativeModules
 
-const emitter = new NativeEventEmitter(RNActivityRecognition);
-var subscription = null;
+const emitter = new NativeEventEmitter(RNActivityRecognition)
+let subscription = null
 
-var ActivityRecognition = {
-  'IOS_STATIONARY': RNActivityRecognition.IOS_STATIONARY,
-  'IOS_WALKING': RNActivityRecognition.IOS_WALKING,
-  'IOS_AUTOMOTIVE': RNActivityRecognition.IOS_AUTOMOTIVE,
+export default {
+    STATIONARY: RNActivityRecognition.IOS_STATIONARY,
+    WALKING: RNActivityRecognition.IOS_WALKING,
+    AUTOMOTIVE: RNActivityRecognition.IOS_AUTOMOTIVE,
 
-  subscribe: function(success: Function) {
-    subscription = emitter.addListener(
-      "ActivityDetection",
-      activity => {
-        success({
-          ...activity,
-          get sorted() {
-            return Object.keys(activity)
-              .map(type => ({ type: type, confidence: activity[type] }))
-          }
-        })
-      }
-    );
-    return () => subscription.remove();
-  },
+    subscribe(success: Function) {
+        subscription = emitter.addListener(
+            'ActivityDetection',
+            (activity) => {
+                success({
+                    ...activity,
+                    get sorted() {
+                        return Object.keys(activity)
+                            .map(type => ({type: type, confidence: activity[type]}))
+                    }
+                })
+            }
+        )
+        return () => subscription.remove()
+    },
 
-  start: function(time: number) {
-    return new Promise((resolve, reject) => {
-      RNActivityRecognition.startActivity(time, logAndReject.bind(null, resolve, reject))
-    })
-  },
+    // getHistory: RNActivityRecognition.getHistory,
+    getHistory: (options: {startDate: string, endDate: string}) => new Promise((resolve, reject) => {
+        RNActivityRecognition.getHistory(options, (err, res) => err ? reject(err) : resolve(res))
+    }),
 
-  startMocked: function(time: number, mockActivity: string) {
-    return new Promise((resolve, reject) => {
-      RNActivityRecognition.startMockedActivity(time, mockActivity, logAndReject.bind(null, resolve, reject))
-    })
-  },
+    start: (time: number) => new Promise((resolve, reject) => {
+        RNActivityRecognition.startActivity(time, logAndReject.bind(null, resolve, reject))
+    }),
 
-  stopMocked: function() {
-    return new Promise((resolve, reject) => {
-      RNActivityRecognition.stopMockedActivity(logAndReject.bind(null, resolve, reject))
-    })
-  },
+    startMocked: (time: number, mockActivity: string) => new Promise((resolve, reject) => {
+        RNActivityRecognition.startMockedActivity(time, mockActivity, logAndReject.bind(null, resolve, reject))
+    }),
 
-  stop: function() {
-    return new Promise((resolve, reject) => {
-      RNActivityRecognition.stopActivity(logAndReject.bind(null, resolve, reject))
-    })
-  }
+    stopMocked: () => new Promise((resolve, reject) => {
+        RNActivityRecognition.stopMockedActivity(logAndReject.bind(null, resolve, reject))
+    }),
+
+    stop: () => new Promise((resolve, reject) => {
+        RNActivityRecognition.stopActivity(logAndReject.bind(null, resolve, reject))
+    }),
 }
 
-function logAndReject(resolve, reject, errorMsg) {
-  if (errorMsg) {
-    // Don't log this as an error, because the client should handle it using `catch`.
-    console.log(`[ActivityRecognition] Error: ${errorMsg}`)
-    reject(errorMsg)
-    return
-  }
-  resolve()
-}
-
-module.exports = ActivityRecognition;
+const logAndReject = (resolve, reject, errorMsg) => errorMsg ? reject(errorMsg) : resolve()

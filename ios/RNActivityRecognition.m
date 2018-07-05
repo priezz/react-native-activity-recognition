@@ -1,6 +1,7 @@
 #import "RNActivityRecognition.h"
 #import <React/RCTLog.h>
 
+
 @implementation RNActivityRecognition
 {
     NSTimer * _timer;
@@ -8,43 +9,66 @@
     NSDictionary<NSString *, id> * _activityEvent;
 }
 
+
 - (dispatch_queue_t)methodQueue
 {
     return dispatch_get_main_queue();
 }
 
+
 RCT_EXPORT_MODULE()
 
+
+- (NSDate *)parseISO8601DateFromString:(NSString *)date
+{
+    NSDateFormatter *dateFormatter = [NSDateFormatter new];
+    NSLocale *posix = [NSLocale localeWithLocaleIdentifier:@"en_US_POSIX"];
+    dateFormatter.locale = posix;
+    dateFormatter.dateFormat = @"yyyy'-'MM'-'dd'T'HH':'mm':'ss.SSSZ";
+    return [dateFormatter dateFromString:date];
+}
+
+
+- (NSDate *)dateFromOptions:(NSDictionary *)options key:(NSString *)key withDefault:(NSDate *)defaultValue {
+    NSString *dateString = [options objectForKey:key];
+    NSDate *date;
+    if(dateString != nil){
+        date = [self parseISO8601DateFromString:dateString];
+    } else {
+        date = defaultValue;
+    }
+    return date;
+}
+
+
 float _timeout = 1.0;
+
 
 - (NSArray<NSString *> *)supportedEvents
 {
     return @[@"ActivityDetection"];
 }
 
+
 - (NSString *)generateAct: (CMMotionActivity *) activity {
     if (activity.stationary) {
         return @"STATIONARY";
     }
-    
     if (activity.walking) {
         return @"WALKING";
     }
-    
     if (activity.running) {
         return @"RUNNING";
     }
-    
     if (activity.automotive) {
         return @"AUTOMOTIVE";
     }
-    
     if (activity.cycling) {
         return @"CYCLING";
     }
-    
     return @"UNKNOWN";
 }
+
 
 - (NSDictionary *)constantsToExport
 {
@@ -55,6 +79,7 @@ float _timeout = 1.0;
              @"IOS_AUTOMOTIVE": @"AUTOMOTIVE",
              };
 }
+
 
 - (void)activityManager
 {
@@ -78,6 +103,7 @@ float _timeout = 1.0;
     }
 }
 
+
 - (void)mockActivityManager:(NSTimer *)timer
 {
     // Receive the data.
@@ -90,6 +116,7 @@ float _timeout = 1.0;
         [self sendEventWithName:@"ActivityDetection" body: _activityEvent];
     });
 }
+
 
 RCT_EXPORT_METHOD(startActivity:(float)time callback:(RCTResponseSenderBlock)callback)
 {
@@ -109,6 +136,53 @@ RCT_EXPORT_METHOD(startActivity:(float)time callback:(RCTResponseSenderBlock)cal
     callback(@[[NSNull null]]);
 }
 
+
+RCT_EXPORT_METHOD(getHistory:(NSDictionary *)input callback:(RCTResponseSenderBlock)callback)
+{
+    NSDate *startDate = [self dateFromOptions:input key:@"startDate" withDefault:nil];
+    NSDate *endDate = [self dateFromOptions:input key:@"endDate" withDefault:[NSDate date]];
+
+    if(startDate == nil || endDate == nil){
+        callback(@[RCTMakeError(@"startDate and endDate are required in options", nil, nil)]);
+        return;
+    }
+
+    if ([CMMotionActivityManager isActivityAvailable])
+    {
+        CMMotionActivityManager *motionManager = [[CMMotionActivityManager alloc] init];
+        NSOperationQueue *motionActivityQueue = [[NSOperationQueue alloc] init];
+
+        [motionManager queryActivityStartingFromDate:startDate toDate:endDate toQueue:motionActivityQueue withHandler:^(NSArray<CMMotionActivity *> *activities, NSError *error) {
+            if (error) {
+                // RCTLogInfo(@"error getting activities history: %@", error);
+                callback(@[RCTMakeError(@"Failed to get activities history", nil, nil)]);
+                return;
+            } else {
+                NSMutableArray *results = [NSMutableArray array];
+                
+                for (CMMotionActivity *activity in activities) {
+                    NSDateFormatter *dateFormatter = [NSDateFormatter new];
+                    NSLocale *posix = [NSLocale localeWithLocaleIdentifier:@"en_US_POSIX"];
+                    dateFormatter.locale = posix;
+                    dateFormatter.dateFormat = @"yyyy'-'MM'-'dd'T'HH':'mm':'ss.SSSZ";
+                    
+                    NSDictionary<NSString *, id> * _record;
+                    _record = @{
+                        @"timeStamp": [dateFormatter stringFromDate:activity.startDate],
+                        @"type": [self generateAct:activity],
+                        @"confidence": @(activity.confidence),
+                    };
+                    [results addObject:  _record];
+                }
+              
+                callback(@[[NSNull null], results]);
+                return;
+            }
+        }];        
+    }
+}
+
+
 RCT_EXPORT_METHOD(startMockedActivity:(float)time mockActivity:(NSString*)mockActivity callback:(RCTResponseSenderBlock)callback)
 {
     _timeout = time/1000;
@@ -119,6 +193,7 @@ RCT_EXPORT_METHOD(startMockedActivity:(float)time mockActivity:(NSString*)mockAc
     callback(@[[NSNull null]]);
 }
 
+
 RCT_EXPORT_METHOD(stopMockedActivity:(RCTResponseSenderBlock)callback)
 {
     RCTLogInfo(@"Stopping Mock Activity Detection");
@@ -126,6 +201,7 @@ RCT_EXPORT_METHOD(stopMockedActivity:(RCTResponseSenderBlock)callback)
     
     callback(@[[NSNull null]]);
 }
+
 
 RCT_EXPORT_METHOD(stopActivity:(RCTResponseSenderBlock)callback)
 {
@@ -135,6 +211,7 @@ RCT_EXPORT_METHOD(stopActivity:(RCTResponseSenderBlock)callback)
     
     callback(@[[NSNull null]]);
 }
+
 
 static NSString* checkActivityConfig()
 {

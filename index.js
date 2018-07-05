@@ -1,3 +1,2 @@
-var ActivityRecognition = require('./src/ActivityRecognition');
-
-module.exports =  ActivityRecognition;
+import ActivityRecognition from './src/ActivityRecognition'
+export default ActivityRecognition
